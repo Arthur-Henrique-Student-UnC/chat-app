@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import io from 'socket.io-client';
 
 const socketEndpoint = process.env.EXPO_PUBLIC_SOCKET_URL;
@@ -13,6 +13,7 @@ export default function App() {
 
     const [contactId, setContactId] = useState('');
     const [message, setMessage] = useState('');
+    const [messages, setMessages] = useState([]);
 
     const [socket, setSocket] = useState(null);
 
@@ -36,6 +37,10 @@ export default function App() {
         })
 
         newSocket.on('private-message', ({ from, message }) => {
+            setMessages((prevMessages) => [
+                ...prevMessages,
+                { from, message, type: 'received' }
+            ])
             console.log(from, ': ', message);
         })
 
@@ -52,6 +57,11 @@ export default function App() {
             to: contactId,
             message: message
         })
+
+        setMessages((prevMessages) => [
+            ...prevMessages,
+            { from: 'Você', message, type: 'sent' }
+        ])
 
         setMessage('');
     }
@@ -92,6 +102,13 @@ export default function App() {
             >
                 <Text style={styles.buttonText}>ENVIAR</Text>
             </TouchableOpacity>
+
+            <FlatList
+                data={messages}
+                renderItem={({ item }) => (
+                    <Text>{item.type === 'sent' ? 'Você' : `De ${item.from}`}: {item.message}</Text>
+                )}
+            />
         </View>
     );
 }
@@ -101,8 +118,9 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20
+        // justifyContent: 'center',
+        padding: 20,
+        paddingTop: 60
     },
     text: {
         fontSize: 20,
