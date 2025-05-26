@@ -105,8 +105,11 @@ export default function App() {
 
             <FlatList
                 data={messages}
+                style={{ width: '100%' }}
                 renderItem={({ item }) => (
-                    <Text>{item.type === 'sent' ? 'Você' : `De ${item.from}`}: {item.message}</Text>
+                    <Text style={item.type == 'sent' ? styles.sentMessage : styles.receivedMessage}>
+                        {item.type === 'sent' ? 'Você' : `De ${item.from}`}: {item.message}
+                    </Text>
                 )}
             />
         </View>
@@ -140,5 +143,19 @@ const styles = StyleSheet.create({
     buttonText: {
         textAlign: 'center',
         fontSize: 18
-    }
+    },
+    sentMessage: {
+        backgroundColor: "#DFF6FF",
+        padding: 10,
+        borderRadius: 10,
+        marginVertical: 5,
+        alignSelf: 'flex-end'
+    },
+    receivedMessage: {
+        backgroundColor: "#F1F1F1",
+        padding: 10,
+        borderRadius: 10,
+        marginVertical: 5,
+        alignSelf: 'flex-start'
+    },
 });
