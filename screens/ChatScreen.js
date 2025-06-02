@@ -2,17 +2,25 @@ import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import io from 'socket.io-client';
-import { DangerButton } from '../components/Button.js';
+import { DangerButton } from '../components/Buttons';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
+import { useAuth } from '../context/AuthContext';
 
 const socketEndpoint = process.env.EXPO_PUBLIC_SOCKET_URL;
 
 export default function ChatScreen() {
-    const [hasConnection, setHasConnection] = useState(false);
+    const { user } = useAuth();
 
-    const userCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const [userId, setUserId] = useState(userCode);    
+    const [hasConnection, setHasConnection] = useState(false);    
+
+    const [userId, setUserId] = useState(null);    
+
+    useEffect(() => {
+        if (user) {
+            setUserId(user.uid);
+        }
+    }, [user])
 
     const [contactId, setContactId] = useState('');
     const [message, setMessage] = useState('');

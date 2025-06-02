@@ -8,8 +8,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { auth } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { PrimaryButton, SecondaryButton } from '../components/Button.js';
-import { EmailInput, PasswordInput } from '../components/CustomInput.js';
+import { PrimaryButton, SecondaryButton } from '../components/Buttons';
+import { EmailInput, PasswordInput } from '../components/CustomInputs';
 
 export default function RegisterScreen () {
 
