@@ -1,179 +1,159 @@
-import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import io from 'socket.io-client';
-import { DangerButton } from '../components/Button.js';
-import { signOut } from 'firebase/auth';
-import { auth } from '../firebase';
+import React, { useEffect, useState } from 'react';
+import {
+    FlatList,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+    SafeAreaView
+} from 'react-native';
+import { collection, query, orderBy, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-
-const socketEndpoint = process.env.EXPO_PUBLIC_SOCKET_URL;
+import { useRoute, useNavigation } from '@react-navigation/native';
 
 export default function ChatScreen() {
     const { user } = useAuth();
+    const route = useRoute();
+    const navigation = useNavigation();
+    const { chatId } = route.params;
 
-    const [hasConnection, setHasConnection] = useState(false);    
-
-    const [userId, setUserId] = useState(null);    
-
-    useEffect(() => {
-        if (user) {
-            setUserId(user.uid);
-        }
-    }, [user])
-
-    const [contactId, setContactId] = useState('');
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState([]);
 
-    const [socket, setSocket] = useState(null);
-
-    const [time, setTime] = useState(null);
-
     useEffect(() => {
-        const newSocket = io(socketEndpoint, {
-            transports: ['websocket'],
-            query: { userId }
-        })
+        if (!chatId) return;
 
-        setSocket(newSocket);
+        const messagesRef = collection(db, 'chats', chatId, 'messages');
+        const q = query(messagesRef, orderBy('timestamp', 'asc'));
 
-        newSocket.on('connect',
-            () => setHasConnection(true));
-        newSocket.on('disconnect',
-            () => setHasConnection(false));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const newMessages = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setMessages(newMessages);
+        });
 
-        newSocket.on('time-msg', (data) => {
-            setTime(new Date(data.time).toString());
-        })
+        return () => unsubscribe();
+    }, [chatId]);
 
-        newSocket.on('private-message', ({ from, message }) => {
-            setMessages((prevMessages) => [
-                ...prevMessages,
-                { from, message, type: 'received' }
-            ])
-            console.log(from, ': ', message);
-        })
+    const sendMessage = async () => {
+        if (!message.trim()) return;
 
-        return () => {
-            newSocket.disconnect();
-            newSocket.removeAllListeners();
-        }
-    }, [])
-
-    const sendMessage = () => {
-        if(!contactId.trim() || !message.trim() || !socket) return;
-
-        socket.emit('private-message', {
-            to: contactId,
-            message: message
-        })
-
-        setMessages((prevMessages) => [
-            ...prevMessages,
-            { from: 'Você', message, type: 'sent' }
-        ])
+        const messagesRef = collection(db, 'chats', chatId, 'messages');
+        await addDoc(messagesRef, {
+            from: user.email,
+            text: message.trim(),
+            timestamp: serverTimestamp()
+        });
 
         setMessage('');
-    }
-
-    if (!hasConnection) {
-        return (
-            <View style={styles.container}>
-                <Text>Conectando...</Text>
-            </View>
-        )
-    }
+    };
 
     return (
-        <View style={styles.container}>
-            <DangerButton
-                text={'Sair da conta'}
-                action={() => {
-                    signOut(auth);
-                }}
-            />
+        <SafeAreaView style={styles.safeArea}>
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()}>
+                    <Text style={styles.backButton}>←</Text>
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Conversa</Text>
+            </View>
 
-            <Text style={styles.text}>Horário do Servidor</Text>
-            <Text style={styles.text}>{time}</Text>
+            <View style={styles.content}>
+                <FlatList
+                    data={messages}
+                    keyExtractor={item => item.id}
+                    style={{ width: '100%' }}
+                    renderItem={({ item }) => (
+                        <Text
+                            style={item.from === user.email ? styles.sentMessage : styles.receivedMessage}
+                        >
+                            {item.from === user.email ? 'Você' : 'Contato'}: {item.text}
+                        </Text>
+                    )}
+                />
 
-            <Text style={styles.text}>Seu ID: {userId}</Text>
-
-            <Text style={styles.text}>ID do Contato</Text>
-            <TextInput
-                placeholder='Preencha'
-                style={styles.input}
-                value={contactId}
-                onChangeText={setContactId}
-            />
-
-            <Text style={styles.text}>Mensagem</Text>
-            <TextInput
-                placeholder='Preencha uma mensagem'
-                style={styles.input}
-                value={message}
-                onChangeText={setMessage}
-            />
-
-            <TouchableOpacity style={styles.button}
-                onPress={sendMessage}
-            >
-                <Text style={styles.buttonText}>ENVIAR</Text>
-            </TouchableOpacity>
-
-            <FlatList
-                data={messages}
-                style={{ width: '100%' }}
-                renderItem={({ item }) => (
-                    <Text style={item.type == 'sent' ? styles.sentMessage : styles.receivedMessage}>
-                        {item.type === 'sent' ? 'Você' : `De ${item.from}`}: {item.message}
-                    </Text>
-                )}
-            />
-        </View>
+                <TextInput
+                    placeholder="Mensagem..."
+                    style={styles.input}
+                    value={message}
+                    onChangeText={setMessage}
+                />
+                <TouchableOpacity
+                    style={styles.button}
+                    onPress={sendMessage}
+                >
+                    <Text style={styles.buttonText}>Enviar</Text>
+                </TouchableOpacity>
+            </View>
+        </SafeAreaView>
     );
+
 }
 
 const styles = StyleSheet.create({
-    container: {
+    safeArea: {
         flex: 1,
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        // justifyContent: 'center',
-        padding: 20,
-        paddingTop: 60
+        backgroundColor: '#fff'
     },
-    text: {
-        fontSize: 20,
-        marginVertical: 10
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 20,
+        paddingHorizontal: 16,
+        backgroundColor: '#172b4d',
+        borderBottomWidth: 1,
+        borderBottomColor: '#ccc',
+        width: '100%'
+    },
+    backButton: {
+        color: 'white',
+        fontSize: 24,
+        marginRight: 10
+    },
+    headerTitle: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold'
+    },
+    content: {
+        flex: 1,
+        paddingHorizontal: 20,
+        paddingTop: 10,
+        backgroundColor: '#fff'
     },
     input: {
-        width: '100%',
         borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 10,
         padding: 10,
+        marginBottom: 10
     },
     button: {
-        backgroundColor: '#ccc',
-        width: '100%',
-        padding: 10,
-        marginVertical: 15
+        backgroundColor: '#172b4d',
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 20
     },
     buttonText: {
+        color: '#fff',
         textAlign: 'center',
-        fontSize: 18
+        fontWeight: 'bold'
     },
     sentMessage: {
-        backgroundColor: "#DFF6FF",
+        backgroundColor: '#d1e7dd',
         padding: 10,
         borderRadius: 10,
         marginVertical: 5,
         alignSelf: 'flex-end'
     },
     receivedMessage: {
-        backgroundColor: "#F1F1F1",
+        backgroundColor: '#f8d7da',
         padding: 10,
         borderRadius: 10,
         marginVertical: 5,
         alignSelf: 'flex-start'
-    },
+    }
 });

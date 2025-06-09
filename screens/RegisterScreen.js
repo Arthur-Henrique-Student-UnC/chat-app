@@ -6,10 +6,11 @@ import {
     StyleSheet,
 } from "react-native";
 import { useNavigation } from '@react-navigation/native';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { PrimaryButton, SecondaryButton } from '../components/Button.js';
-import { EmailInput, PasswordInput } from '../components/CustomInput.js';
+import { PrimaryButton, SecondaryButton } from '../components/Buttons';
+import { EmailInput, PasswordInput } from '../components/CustomInputs';
+import { addDoc, collection } from 'firebase/firestore';
 
 export default function RegisterScreen () {
 
@@ -49,6 +50,10 @@ export default function RegisterScreen () {
         .catch((error) => {
             setErrorMessage(error.message);
         })
+
+        await addDoc(collection(db, 'users'), {
+            email: email 
+        });
        
     }
 
